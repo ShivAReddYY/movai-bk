@@ -2,7 +2,7 @@ const corsOptions = {
   origin: [
     process.env.CLIENT_URL || 'http://localhost:3000',
     'http://localhost:3000',
-    'https://your-vercel-domain.vercel.app'
+    'https://movai-fd.vercel.app/'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -16,3 +16,4 @@ module.exports = {
   apiUrl: process.env.API_URL || 'http://localhost:5000',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:3000'
 };
+
