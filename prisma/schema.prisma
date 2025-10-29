@@ -1,0 +1,489 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum FileType {
+  FOUNTAIN
+  PDF
+  TXT
+  FDX
+}
+
+enum CollaboratorRole {
+  VIEWER
+  EDITOR
+  ADMIN
+}
+
+enum CommentType {
+  GENERAL
+  NOTE
+  SUGGESTION
+  QUESTION
+  ISSUE
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
+  IN_PROGRESS
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ✅ NEW: AI Generation Enums
+enum AIGenerationType {
+  VIDEO              // Veo 3.1 video generation
+  IMAGE              // Imagen 3 / Nano Banana
+  AUDIO              // Text-to-Speech
+  VOICE_CLONE        // Voice cloning
+  COSTUME            // Costume design
+  CHARACTER          // Character design
+  STORYBOARD         // Scene storyboard
+  LOCATION           // Location/Set design
+  PROPS              // Props generation
+  SOUNDTRACK         // Background music
+  SOUND_EFFECTS      // SFX generation
+  VIDEO_EXTENSION    // Extend existing video
+  IMAGE_TO_VIDEO     // Animate image
+  VIDEO_COMPOSITE    // Multiple videos combined
+}
+
+enum GenerationStatus {
+  PENDING            // Queued
+  PROCESSING         // Being generated
+  COMPLETED          // Successfully generated
+  FAILED             // Generation failed
+  CANCELLED          // User cancelled
+}
+
+enum AIModel {
+  VEO_3_1            // Latest Veo
+  VEO_3_1_FAST       // Fast variant
+  VEO_3              // Stable Veo 3
+  VEO_3_FAST         // Fast Veo 3
+  VEO_2              // Legacy Veo 2
+  IMAGEN_3           // Image generation
+  NANO_BANANA        // Gemini 2.5 Flash Image
+  GEMINI_PRO         // For text analysis
+  ELEVEN_LABS        // Voice generation
+  CUSTOM             // Custom model
+}
+
+enum AspectRatio {
+  RATIO_16_9         // Widescreen
+  RATIO_9_16         // Portrait
+  RATIO_1_1          // Square
+  RATIO_4_3          // Classic
+}
+
+enum VideoResolution {
+  RES_720P
+  RES_1080P
+  RES_4K
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String?   @unique
+  password      String?
+  googleId      String?   @unique
+  name          String?
+  avatar        String?
+  role          Role      @default(USER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  ownedScripts     Script[]              @relation("ScriptOwner")
+  collaborations   ScriptCollaborator[]
+  comments         Comment[]
+  tasks            Task[]                @relation("AssignedTasks")
+  createdTasks     Task[]                @relation("CreatedTasks")
+  mentions         Comment[]             @relation("Mentions")
+  aiGenerations    AIGeneration[]        @relation("GenerationCreator")
+  
+  @@index([email])
+  @@index([googleId])
+  @@map("users")
+}
+
+model Script {
+  id                String    @id @default(cuid())
+  title             String
+  description       String?
+  originalFilename  String
+  storedFilename    String
+  fileType          FileType
+  fileSize          Int
+  filePath          String
+  fileUrl           String?
+  version           Int       @default(1)
+  isPublic          Boolean   @default(false)
+  metadata          Json?
+  parsedContent     Json?
+  ownerId           String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  owner             User                  @relation("ScriptOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  pages             ScriptPage[]
+  scenes            Scene[]
+  characters        Character[]
+  collaborators     ScriptCollaborator[]
+  comments          Comment[]
+  tasks             Task[]
+  aiAnalysis        AiAnalysis[]
+  aiGenerations     AIGeneration[]        // ✅ NEW
+  aiAssets          AIAsset[]             // ✅ NEW
+  
+  @@index([ownerId])
+  @@index([createdAt])
+  @@map("scripts")
+}
+
+model ScriptPage {
+  id          String   @id @default(uuid())
+  scriptId    String
+  script      Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  pageNumber  Int
+  rawText     String   @db.Text
+  lineCount   Int      @default(0)
+  formatted   Json     @default("[]")
+  isReviewed  Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([scriptId, pageNumber])
+  @@index([scriptId])
+  @@map("script_pages")
+}
+
+model ScriptCollaborator {
+  id        String           @id @default(cuid())
+  scriptId  String
+  userId    String
+  role      CollaboratorRole @default(VIEWER)
+  addedAt   DateTime         @default(now())
+  
+  script    Script           @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([scriptId, userId])
+  @@index([scriptId])
+  @@index([userId])
+  @@map("script_collaborators")
+}
+
+model Scene {
+  id          String   @id @default(cuid())
+  scriptId    String
+  sceneNumber Int
+  page        Int?
+  heading     String
+  location    String?
+  intExt      String?
+  timeOfDay   String?
+  summary     String?
+  sceneText   String   @db.Text
+  actors      String[]
+  props       String[]
+  notes       String?
+  costFactor  Float?   @default(1.0)
+  duration    Int?
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  script        Script         @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  aiGenerations AIGeneration[] // ✅ NEW: AI generated for this scene
+  
+  @@unique([scriptId, sceneNumber])
+  @@index([scriptId])
+  @@map("scenes")
+}
+
+model Character {
+  id          String   @id @default(cuid())
+  scriptId    String
+  name        String
+  description String?
+  lines       Int      @default(0)
+  scenes      Int      @default(0)
+  dialogue    Json?
+  sceneIds    String[]
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  script        Script         @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  aiGenerations AIGeneration[] // ✅ NEW: AI generated for character
+  
+  @@unique([scriptId, name])
+  @@index([scriptId])
+  @@map("characters")
+}
+
+model Comment {
+  id          String        @id @default(cuid())
+  scriptId    String
+  sceneId     String?
+  authorId    String
+  parentId    String?
+  content     String        @db.Text
+  type        CommentType   @default(GENERAL)
+  status      CommentStatus @default(OPEN)
+  priority    Priority      @default(MEDIUM)
+  assignedToId String?
+  tags        String[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  script      Script        @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  scene       Scene?        @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  author      User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent      Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[]     @relation("CommentReplies")
+  mentions    User[]        @relation("Mentions")
+  
+  @@index([scriptId])
+  @@index([sceneId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  scriptId        String
+  title           String
+  description     String?
+  category        String
+  status          TaskStatus @default(PENDING)
+  priority        Priority   @default(MEDIUM)
+  assignedToId    String?
+  createdById     String
+  dueDate         DateTime?
+  completedDate   DateTime?
+  estimatedHours  Float?
+  actualHours     Float?
+  estimatedBudget Float?
+  actualBudget    Float?
+  relatedScenes   String[]
+  attachments     Json?
+  tags            String[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  script          Script     @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  assignedTo      User?      @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  createdBy       User       @relation("CreatedTasks", fields: [createdById], references: [id])
+  
+  @@index([scriptId])
+  @@index([assignedToId])
+  @@map("tasks")
+}
+
+model AiAnalysis {
+  id          String   @id @default(cuid())
+  scriptId    String
+  type        String
+  result      Json
+  createdAt   DateTime @default(now())
+  
+  script      Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  @@index([scriptId])
+  @@map("ai_analysis")
+}
+
+// ==================== ✅ NEW: AI GENERATION MODELS ====================
+
+model AIGeneration {
+  id            String             @id @default(cuid())
+  scriptId      String
+  script        Script             @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  // Optional relations
+  sceneId       String?
+  scene         Scene?             @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  characterId   String?
+  character     Character?         @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  createdById   String
+  createdBy     User               @relation("GenerationCreator", fields: [createdById], references: [id])
+  
+  // Generation details
+  type          AIGenerationType
+  model         AIModel
+  status        GenerationStatus   @default(PENDING)
+  
+  // Input
+  prompt        String             @db.Text
+  negativePrompt String?           @db.Text
+  
+  // Source assets (for image-to-video, etc)
+  sourceAssetId String?
+  sourceAsset   AIAsset?           @relation("SourceAsset", fields: [sourceAssetId], references: [id], onDelete: SetNull)
+  referenceImages String[]         // URLs to reference images
+  
+  // Configuration
+  config        Json?              // Model-specific config
+  aspectRatio   AspectRatio?
+  resolution    VideoResolution?
+  duration      Int?               // Seconds for video/audio
+  
+  // Output
+  outputUrl     String?            // Generated file URL
+  thumbnailUrl  String?            // Preview thumbnail
+  fileSize      Int?               // Bytes
+  filePath      String?            // Local file path
+  
+  // Metadata
+  metadata      Json?              // Additional info
+  costCredits   Float?             // API cost tracking
+  
+  // Operation tracking
+  operationId   String?            // Long-running operation ID
+  operationName String?            // For polling
+  errorMessage  String?            @db.Text
+  retryCount    Int                @default(0)
+  
+  // Timestamps
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  // Relations
+  assets        AIAsset[]          @relation("GeneratedAssets")
+  childGenerations AIGeneration[]  @relation("ParentGeneration")
+  parentGenerationId String?
+  parentGeneration   AIGeneration? @relation("ParentGeneration", fields: [parentGenerationId], references: [id], onDelete: SetNull)
+  
+  @@index([scriptId])
+  @@index([sceneId])
+  @@index([characterId])
+  @@index([createdById])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("ai_generations")
+}
+
+model AIAsset {
+  id              String             @id @default(cuid())
+  scriptId        String
+  script          Script             @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  generationId    String?
+  generation      AIGeneration?      @relation("GeneratedAssets", fields: [generationId], references: [id], onDelete: SetNull)
+  
+  // Asset details
+  type            AIGenerationType
+  name            String
+  description     String?            @db.Text
+  
+  // File info
+  url             String
+  thumbnailUrl    String?
+  filePath        String
+  fileSize        Int
+  mimeType        String
+  
+  // Media properties
+  width           Int?
+  height          Int?
+  duration        Int?               // For video/audio
+  aspectRatio     AspectRatio?
+  
+  // Usage tracking
+  usedInScenes    String[]           // Scene IDs where this is used
+  tags            String[]
+  
+  // Metadata
+  metadata        Json?
+  isPublic        Boolean            @default(false)
+  
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  
+  // Relations
+  usedAsSource    AIGeneration[]     @relation("SourceAsset")
+  
+  @@index([scriptId])
+  @@index([generationId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("ai_assets")
+}
+
+// ✅ NEW: AI Generation Queue for background processing
+model AIGenerationQueue {
+  id            String             @id @default(cuid())
+  generationId  String             @unique
+  priority      Int                @default(0)
+  retries       Int                @default(0)
+  maxRetries    Int                @default(3)
+  scheduledFor  DateTime           @default(now())
+  processedAt   DateTime?
+  error         String?            @db.Text
+  
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  @@index([scheduledFor])
+  @@index([processedAt])
+  @@map("ai_generation_queue")
+}
+
+// ✅ NEW: User API usage tracking
+model UserAPIUsage {
+  id            String   @id @default(cuid())
+  userId        String
+  date          DateTime @default(now())
+  
+  // Usage counts
+  videoGenerations    Int @default(0)
+  imageGenerations    Int @default(0)
+  audioGenerations    Int @default(0)
+  totalCreditsUsed    Float @default(0)
+  
+  // Limits
+  monthlyVideoLimit   Int @default(50)
+  monthlyImageLimit   Int @default(200)
+  monthlyAudioLimit   Int @default(100)
+  
+  @@unique([userId, date])
+  @@index([userId])
+  @@map("user_api_usage")
+}
