@@ -1,0 +1,44 @@
+{
+  "name": "film-studio",
+  "version": "1.0.0",
+  "description": "Film Studio Backend API - Node.js",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "worker": "node src/workers/index.js"
+  },
+  "dependencies": {
+    "@google/genai": "^1.25.0",
+    "@prisma/client": "^6.17.1",
+    "argon2": "^0.44.0",
+    "axios": "^1.12.2",
+    "bullmq": "^5.61.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "express-validator": "^7.2.1",
+    "fountain-js": "^1.2.4",
+    "ioredis": "^5.8.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-jwt": "^4.0.1",
+    "pdf-parse": "^2.4.4",
+    "prisma": "^6.17.1",
+    "socket.io": "^4.8.1",
+    "uuid": "^13.0.0",
+    "xml2js": "^0.6.2",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.27"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
